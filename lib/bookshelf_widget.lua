@@ -22367,9 +22367,24 @@ function BookshelfWidget:_setBookRating(book, new_rating, opts)
     local ok_ds, ds = pcall(function() return DocSettings:open(book.filepath) end)
     if not ok_ds or not ds then return end
     local summary = ds:readSetting("summary") or {}
-    summary.rating = new_rating  -- nil clears it
+    local previous_rating = tonumber(summary.rating)
+    summary.rating = new_rating
     ds:saveSetting("summary", summary)
     ds:flush()
+    if previous_rating ~= tonumber(new_rating) then
+        pcall(function()
+            local Event = require("ui/event")
+            local authors = book.authors or book.author or {}
+            local title = type(book.title) == "string" and book.title or ""
+            UIManager:broadcastEvent(Event:new(
+                "BookshelfRatingChanged",
+                book.filepath,
+                tonumber(new_rating) or 0,
+                title,
+                authors
+            ))
+        end)
+    end
     -- Update the in-memory book record so the immediate rebuild reflects
     -- the new value without waiting for a fresh BIM read.
     book.rating = new_rating
